@@ -71,6 +71,8 @@ const isDev = import.meta.env.DEV;
 </template>
 ```
 
+`npx flute open` and `npx flute validate` check the wrap: they fail with `missing-connection` (and print the exact snippet) until a source file under `src/` other than `src/flute/` imports `flute/ProjectPreview.vue` and renders it, and `open` also loads `?flute-preview=1` headlessly (when Playwright Chromium is installed) to catch a wrap that is present but not enabled.
+
 Open your dev server with `?flute-preview=1` for the scene library, or run `npx flute open --url http://127.0.0.1:5173`. Without that query the app is untouched, and production renders only the slot.
 
 A scene is a versioned `src/flute/scenes/<id>.scene.json` recipe plus a matching `<id>.vue` component. `<Surface>` registers a live subtree: its default slot holds the children and its named `content` slot is the isolated visual leaf (React's `content` prop). Import from `@webprodigies/flute/vue`:

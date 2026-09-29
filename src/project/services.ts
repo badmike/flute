@@ -81,6 +81,40 @@ export async function scanDirectory(root: string, target: string, maxEntries: nu
   }
   return entries.sort();
 }
+/** Bounded recursive source scan: regular files only (symlinks are skipped, never followed), fixed depth and
+ * entry limits, node_modules and dot directories ignored, `exclude` prefixes (project-relative) pruned. */
+export async function scanFiles(root: string, target: string, options: { extensions: string[]; exclude?: string[]; maxEntries?: number; maxDepth?: number }): Promise<string[]> {
+  const maxEntries = options.maxEntries ?? 2048;
+  const maxDepth = options.maxDepth ?? 8;
+  if (!Number.isSafeInteger(maxEntries) || maxEntries < 1 || maxEntries > 4096)
+    throw fault("invalid-input", "Scan limit must be between 1 and 4096 entries.", target);
+  const excluded = (options.exclude ?? []).map(prefix => prefix.replace(/\/+$/, ""));
+  const found: string[] = [];
+  let visited = 0;
+  const visit = async (directoryTarget: string, depth: number): Promise<void> => {
+    let directory;
+    try { directory = await opendir(await scopedPath(root, directoryTarget)); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT" || (error as NodeJS.ErrnoException).code === "ENOTDIR") return;
+      throw error;
+    }
+    const children = [];
+    for await (const entry of directory) {
+      if (++visited > maxEntries) throw fault("invalid-file", `Source tree exceeds ${maxEntries} entries; narrow the scan or reduce its size.`, target);
+      children.push(entry);
+    }
+    for (const entry of children.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
+      const child = `${directoryTarget}/${entry.name}`;
+      if (excluded.some(prefix => child === prefix || child.startsWith(prefix + "/"))) continue;
+      if (entry.isDirectory()) {
+        if (entry.name === "node_modules" || entry.name.startsWith(".") || depth >= maxDepth) continue;
+        await visit(child, depth + 1);
+      } else if (entry.isFile() && options.extensions.some(extension => entry.name.endsWith(extension))) found.push(child);
+    }
+  };
+  await visit(target, 0);
+  return found;
+}
 export async function isRegularFile(root: string, target: string): Promise<boolean> {
   const filename = await scopedPath(root, target);
   try { return (await lstat(filename)).isFile(); }

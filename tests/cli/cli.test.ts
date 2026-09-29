@@ -149,3 +149,43 @@ it("presents the Vue connection instructions without React wording",async()=>{
  const json=await runCli(["init","--adapter","vue","--json"],context,vi.fn().mockResolvedValue(vue));
  expect(JSON.parse(json.stdout).data.project.adapter).toBe("vue");
 });
+
+describe("runtime mount check after open", () => {
+  const opened: ProjectResult = { success: true, data: { url: "http://127.0.0.1:5173/?flute-preview=1" } };
+  const noRecipes = vi.fn(), noExport = vi.fn(), noSnapshot = vi.fn();
+  it("fails open with an actionable message when the wrap loads but the studio never mounts", async () => {
+    const prober = vi.fn().mockResolvedValue("not-mounted");
+    const r = await runCli(["open", "--no-open"], context, vi.fn().mockResolvedValue(opened), noExport, noRecipes, noSnapshot, prober);
+    expect(prober).toHaveBeenCalledWith({ url: "http://127.0.0.1:5173/?flute-preview=1" }, context);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("The wrap is present but not enabled");
+    expect(r.stderr).toContain("import.meta.env.DEV");
+  });
+  it.each(["mounted", "unavailable"])("keeps a verified open successful when the probe reports %s", async state => {
+    const r = await runCli(["open", "--no-open"], context, vi.fn().mockResolvedValue(opened), noExport, noRecipes, noSnapshot, vi.fn().mockResolvedValue(state));
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("flute-preview=1");
+  });
+  it("keeps open successful when the probe itself throws", async () => {
+    const r = await runCli(["open", "--no-open"], context, vi.fn().mockResolvedValue(opened), noExport, noRecipes, noSnapshot, vi.fn().mockRejectedValue(new Error("boom")));
+    expect(r.code).toBe(0);
+  });
+  it("probes the library, not the selected scene, for open --scene", async () => {
+    const prober = vi.fn().mockResolvedValue("not-mounted");
+    const recipes = vi.fn().mockResolvedValue({ success: true, data: { scenes: [], issues: [], url: "http://127.0.0.1:5173/?flute-preview=1&flute-scene=demo" } });
+    const r = await runCli(["open", "--scene", "demo", "--no-open"], context, vi.fn(), noExport, recipes, noSnapshot, prober);
+    expect(prober).toHaveBeenCalledWith({ url: "http://127.0.0.1:5173/?flute-preview=1" }, context);
+    expect(r.code).toBe(1);
+  });
+  it("checks after init --url opens the preview, and never after a failed open", async () => {
+    const prober = vi.fn().mockResolvedValue("not-mounted");
+    const execute = vi.fn().mockResolvedValueOnce(ready).mockResolvedValueOnce(opened);
+    expect((await runCli(["init", "--url", "http://127.0.0.1:5173", "--no-open"], context, execute, noExport, noRecipes, noSnapshot, prober)).code).toBe(1);
+    const failing = vi.fn().mockResolvedValue({ success: false, issues: [{ code: "missing-connection", message: "wrap it" }] });
+    const skipped = vi.fn();
+    const r = await runCli(["open", "--no-open"], context, failing, noExport, noRecipes, noSnapshot, skipped);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("missing-connection");
+    expect(skipped).not.toHaveBeenCalled();
+  });
+});

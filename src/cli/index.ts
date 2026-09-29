@@ -1,7 +1,7 @@
 import { RESOURCES } from "../core/resources";
 import { FLUTE_BRAND } from "../core/branding";
 import { formatOnboarding, terminalWelcome, type TerminalOptions } from "./terminal";
-import { executeSceneSnapshot, executeVideoExport } from "../export/commands";
+import { executePreviewProbe, executeSceneSnapshot, executeVideoExport } from "../export/commands";
 import { executeProjectCommand } from "../project/commands";
 import { executeRecipeCommand, type RecipeCommandResult } from "../project/recipes";
 import type { ProjectResult } from "../core/project";
@@ -58,7 +58,18 @@ function recipeOutput(result: RecipeCommandResult, json: boolean): CliResult {
       : "No local scenes found. Add a recipe and matching component in src/flute/scenes.");
   return { code: 0, stdout: (json ? JSON.stringify(result) : text) + "\n", stderr: !json && diagnostics ? diagnostics + "\n" : "" };
 }
-export async function runCli(argv: string[], environment: Environment, execute: Execute = executeProjectCommand, exporter: typeof executeVideoExport = executeVideoExport, recipes: typeof executeRecipeCommand = executeRecipeCommand, snapshotter:typeof executeSceneSnapshot=executeSceneSnapshot): Promise<CliResult> {
+/** After open verified the dev server, a Vue-family host must actually render the studio: a wrap that is
+ * present but disabled (enabled prop, DEV flag) would otherwise open the plain app with no explanation. */
+async function mountFailure(prober: typeof executePreviewProbe, context: { root: string }, url: string | undefined): Promise<CliResult | undefined> {
+  if (!url) return undefined;
+  // Probe the studio library itself, not a selected scene: drop the deep link's flute-scene parameter.
+  const base = url.replace(/([?&])flute-scene=[^&#]*&?/, "$1").replace(/[?&]$/, "");
+  let state: Awaited<ReturnType<typeof executePreviewProbe>> | undefined;
+  try { state = await prober({ url: base }, context); } catch { return undefined; }
+  if (state !== "not-mounted") return undefined;
+  return { code: 1, stdout: "", stderr: `not-mounted: ${base} loaded, but the Flute studio did not render. The wrap is present but not enabled: check the enabled prop and import.meta.env.DEV (Nuxt: this must run in development), then retry.\n` };
+}
+export async function runCli(argv: string[], environment: Environment, execute: Execute = executeProjectCommand, exporter: typeof executeVideoExport = executeVideoExport, recipes: typeof executeRecipeCommand = executeRecipeCommand, snapshotter:typeof executeSceneSnapshot=executeSceneSnapshot, prober:typeof executePreviewProbe=executePreviewProbe): Promise<CliResult> {
   if (argv.length === 1 && ["--version", "-v"].includes(argv[0]))
     return {code:0, stdout:(environment.terminal?.version ?? "development") + "\n", stderr:""};
   if (argv.length === 0 || (argv.length === 1 && ["--help", "-h", "help"].includes(argv[0])))
@@ -105,7 +116,11 @@ export async function runCli(argv: string[], environment: Environment, execute: 
     const input = command === "scenes" ? {} : { sceneId: flags.get("--scene"), ...(command === "open" ? {
       url: flags.get("--url") ?? `http://127.0.0.1:${environment.port ?? "5173"}`, launch: !flags.has("--no-open"),
     } : {}) };
-    try { return recipeOutput(await recipes(operation, input, context), json); }
+    try {
+      const result = await recipes(operation, input, context);
+      const failure = result.success && command === "open" ? await mountFailure(prober, context, result.data.url) : undefined;
+      return failure ?? recipeOutput(result, json);
+    }
     catch { return { code: 1, stdout: "", stderr: "Scene command failed unexpectedly. Check the local recipes and retry.\n" }; }
   }
   if (command === "export") {
@@ -124,9 +139,17 @@ export async function runCli(argv: string[], environment: Environment, execute: 
   if (onboarding?.streamed) environment.progress!(terminalWelcome(environment.terminal) + "Preparing your project…\n");
   try {
     const result = await execute(aliases[command as keyof typeof aliases], input, context);
+    if (result.success && command === "open") {
+      const failure = await mountFailure(prober, context, result.data.url);
+      if (failure) return failure;
+    }
     if (!result.success || command !== "init" || !flags.has("--url")) return output(result, json, onboarding);
     const opened = await execute("open-preview", { url: flags.get("--url"), launch: !flags.has("--no-open") }, context);
-    if (opened.success) return output({ success: true, data: { ...result.data, ...opened.data } }, json, onboarding);
+    if (opened.success) {
+      const failure = await mountFailure(prober, context, opened.data.url);
+      if (failure) return failure;
+      return output({ success: true, data: { ...result.data, ...opened.data } }, json, onboarding);
+    }
     const failure = output(opened, json);
     return json ? failure : { ...failure, stdout: output(result, false, onboarding).stdout };
   } catch {

@@ -2,6 +2,7 @@ import { RESOURCES } from "../core/resources";
 import { CaptureManifestSchema, type ExportVideoResult } from "../core/export";
 import { SceneRecipeSchema, SceneSnapshotSchema } from "../core/recipes";
 import {executeRecipeCommand} from "../project/recipes";
+import { executeProjectCommand } from "../project/commands";
 import { fault } from "../project/errors";
 import * as services from "./services";
 
@@ -59,4 +60,22 @@ export async function executeSceneSnapshot(input:unknown,context:{root:string;si
   const known=error as {code?:string;message?:string};
   return {success:false as const,issues:[{code:known.code??"snapshot-failed",message:known.code&&known.message?known.message:"Snapshot failed. Check the scene, browser installation and source, then retry."}]};
  }finally{await session?.close()}
+}
+
+/** SOURCE OF TRUTH: executePreviewProbe runtime mount check.
+ * WHAT: for a Vue-family project, load its loopback ?flute-preview=1 URL headlessly and look for this project's
+ *       [data-flute-project] marker.
+ * WHY: a static wrap check cannot see a disabled wrap (enabled=false, DEV-only flag); only a real render can.
+ * WHERE: cli calls it after open verified the dev server; the project identity comes from load-project and
+ * services owns the browser. "unavailable" (other adapters, no Chromium, unreadable project) is never an error,
+ * because open must keep working without the optional Playwright install.
+ */
+export async function executePreviewProbe(input: { url: string }, context: { root: string }, timeoutMs = 10_000): Promise<"mounted" | "not-mounted" | "unavailable"> {
+  try {
+    const loaded = await executeProjectCommand("load-project", {}, context);
+    const project = loaded?.success ? loaded.data.project : undefined;
+    if (!project || !["vue", "nuxt"].includes(project.adapter ?? "")) return "unavailable";
+    const result = await services.probeSelector(input.url, `[data-flute-project="${project.projectId}"]`, timeoutMs);
+    return result === "present" ? "mounted" : result === "absent" ? "not-mounted" : "unavailable";
+  } catch { return "unavailable"; }
 }

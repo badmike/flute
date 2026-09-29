@@ -120,6 +120,31 @@ export async function openCapture(input: Pick<ExportVideo,"url"|"width"|"height"
   } catch (error) { await close(); check(); throw error; }
 }
 
+/** Headless mount probe for `flute open`: does the loopback preview render the selector within the budget?
+ * "unavailable" means no Playwright/Chromium, which must never fail an otherwise verified open. */
+export async function probeSelector(url: string, selector: string, timeoutMs: number): Promise<"present" | "absent" | "unavailable"> {
+  let browser: Browser | undefined;
+  try {
+    const origin = new URL(url);
+    if (origin.protocol !== "http:" || !["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname)) return "unavailable";
+    try {
+      const { chromium } = await import("playwright");
+      browser = await chromium.launch({ headless: true, channel: "chromium" });
+    } catch { return "unavailable"; }
+    const page = await browser.newPage();
+    await page.route("**/*", route => {
+      const request = route.request();
+      const target = new URL(request.url());
+      if (request.isNavigationRequest() && (!["localhost", "127.0.0.1", "[::1]"].includes(target.hostname) || target.protocol !== "http:")) return route.abort();
+      return route.continue();
+    });
+    await page.goto(url, { waitUntil: "load", timeout: 30_000 });
+    try { await page.waitForSelector(selector, { state: "attached", timeout: timeoutMs }); return "present"; }
+    catch { return "absent"; }
+  } catch { return "unavailable"; }
+  finally { await browser?.close().catch(() => {}); }
+}
+
 // Reuse scoped, compare-before-write project effects for cached recipe imagery.
 export const readRecipe=readText;
 export const writeRecipe=atomicWrite;

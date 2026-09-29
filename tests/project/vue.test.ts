@@ -41,6 +41,14 @@ async function scene(root: string, id = "one", extension = "vue") {
   await put(root, `src/flute/scenes/${id}.scene.json`, JSON.stringify({ version: 1, id, title: id, definition: { scene: { nodes: [{ id: "ui" }] } } }));
   await put(root, `src/flute/scenes/${id}.${extension}`, "<template><div/></template>");
 }
+/** The one host step init leaves: import the generated component and render it around the app. */
+const WRAPPED = `<script setup lang="ts">
+import FluteProjectPreview from "./flute/ProjectPreview.vue";
+const dev = import.meta.env.DEV;
+</script>
+<template><FluteProjectPreview :enabled="dev"><main>Existing Vue host</main></FluteProjectPreview></template>
+`;
+const wrap = (root: string, file = "src/App.vue", text = WRAPPED) => put(root, file, text);
 afterEach(async () => {
   vi.restoreAllMocks();
   await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })));
@@ -73,6 +81,10 @@ describe("Vue host connection", () => {
     expect(handoff).toContain("<id>.vue");
     expect(handoff).not.toContain("`@webprodigies/flute/preview`");
     expect(success(await run(root)).changed).toBe(false);
+    // The connection step is the host's: validate reports it until App.vue is wrapped.
+    expect(await run(root, "validate-project")).toMatchObject({ success: false, issues: [{ code: "missing-connection" }] });
+    expect(success(await run(root, "load-project")).project).toEqual(first.project);
+    await wrap(root);
     expect(success(await run(root, "validate-project")).project).toEqual(first.project);
   });
 
@@ -134,6 +146,7 @@ describe("Vue host connection", () => {
     });
     expect((await run(root)).success).toBe(false);
     success(await run(root));
+    await wrap(root);
     success(await run(root, "validate-project"));
   });
 });
@@ -180,10 +193,100 @@ describe("Vue scene bindings", () => {
   });
 });
 
+describe("Vue wrap detection", () => {
+  const opened = (root: string) => run(root, "open-preview", { url: "http://127.0.0.1:5173", launch: false });
+  async function connected(mutate?: (root: string) => Promise<void>) {
+    const root = await host();
+    const { project } = success(await run(root));
+    await mutate?.(root);
+    vi.spyOn(services, "fetchText").mockResolvedValue(`ProjectPreview ${project!.projectId}`);
+    vi.spyOn(services, "pause").mockResolvedValue(undefined);
+    return root;
+  }
+  const missing = (result: Awaited<ReturnType<typeof run>>) => {
+    expect(result).toMatchObject({ success: false, issues: [{ code: "missing-connection" }] });
+    if (result.success) throw Error("unreachable");
+    return result.issues[0].message;
+  };
+
+  it("passes open and validate for a wrapped App.vue", async () => {
+    const root = await connected(root => wrap(root));
+    expect(success(await opened(root)).url).toBe("http://127.0.0.1:5173/?flute-preview=1");
+    success(await run(root, "validate-project"));
+  });
+
+  it("fails open and validate with the exact init snippet when nothing imports the component", async () => {
+    const root = await connected();
+    const init = success(await run(root, "init-project")).integration!.instructions;
+    const snippet = init.slice(0, init.indexOf(" Scene pairs"));
+    for (const message of [missing(await opened(root)), missing(await run(root, "validate-project"))]) {
+      expect(message).toContain(snippet);
+      expect(message).toContain("No host source imports the generated Flute component");
+    }
+    const failure = await opened(root);
+    if (failure.success) throw Error("unreachable");
+    expect(failure.issues[0].path).toBe("src/flute/ProjectPreview.vue");
+  });
+
+  it("fails when the component is imported but never used in a template", async () => {
+    const root = await connected(root => wrap(root, "src/App.vue", WRAPPED.replace(/<template>.*<\/template>/s, "<template><main>Existing Vue host</main></template>")));
+    expect(missing(await opened(root))).toContain("imported but never rendered");
+    expect(missing(await run(root, "validate-project"))).toContain("imported but never rendered");
+  });
+
+  it("does not treat a commented-out usage as a wrap", async () => {
+    const root = await connected(root => wrap(root, "src/App.vue", WRAPPED.replace(/<template>.*<\/template>/s, "<template><!-- <FluteProjectPreview :enabled=\"dev\" /> --><main /></template>")));
+    missing(await opened(root));
+  });
+
+  it.each([
+    ["a renamed import in PascalCase", 'import Studio from "./flute/ProjectPreview.vue";', "<Studio :enabled=\"dev\"><main /></Studio>"],
+    ["a renamed import in kebab-case", 'import PreviewShell from "@/flute/ProjectPreview.vue";', "<preview-shell :enabled=\"dev\"><main /></preview-shell>"],
+    ["a self-closing tag", 'import FluteProjectPreview from "../flute/ProjectPreview.vue";', "<FluteProjectPreview :enabled=\"dev\" />"],
+    ["a lazily imported component", 'import { defineAsyncComponent } from "vue"; const Lazy = defineAsyncComponent(() => import("./flute/ProjectPreview.vue"));', "<Lazy :enabled=\"dev\"><main /></Lazy>"],
+  ])("accepts %s", async (_name, importLine, markup) => {
+    const root = await connected(root => wrap(root, "src/App.vue", `<script setup>\n${importLine}\nconst dev = import.meta.env.DEV;\n</script>\n<template>${markup}</template>\n`));
+    success(await run(root, "validate-project"));
+    expect(success(await opened(root)).url).toBe("http://127.0.0.1:5173/?flute-preview=1");
+  });
+
+  it("accepts the wrap in any host file under src, such as a layout component", async () => {
+    const root = await connected(root => wrap(root, "src/layouts/Shell.vue", WRAPPED.replace("./flute/", "../flute/")));
+    success(await run(root, "validate-project"));
+  });
+
+  it("accepts a render function that uses the imported component", async () => {
+    const root = await connected(root => wrap(root, "src/root.ts", 'import { h } from "vue";\nimport Studio from "./flute/ProjectPreview.vue";\nexport const Root = { render: () => h(Studio, { enabled: true }) };\n'));
+    success(await run(root, "validate-project"));
+  });
+
+  it("does not count a wrap that lives only under src/flute/", async () => {
+    const root = await connected(root => wrap(root, "src/flute/Elsewhere.vue", WRAPPED.replace("./flute/", "./")));
+    missing(await opened(root));
+    missing(await run(root, "validate-project"));
+  });
+
+  it("ignores wraps in node_modules-like and dot directories, and honors the scan bound", async () => {
+    const root = await connected(root => wrap(root, "src/.hidden/App.vue", WRAPPED.replace("./flute/", "../flute/")));
+    missing(await run(root, "validate-project"));
+    await expect(services.scanFiles(root, "src", { extensions: [".vue"], maxEntries: 1 })).rejects.toMatchObject({ code: "invalid-file" });
+    expect(await services.scanFiles(root, "missing", { extensions: [".vue"] })).toEqual([]);
+  });
+
+  it("keeps init output unchanged and unwrapped hosts usable for sync and scenes", async () => {
+    const root = await connected();
+    await scene(root);
+    success(await run(root, "sync-project"));
+    expect(await executeRecipeCommand("list-scenes", {}, { root })).toMatchObject({ success: true });
+    expect(await executeRecipeCommand("open-scene", { sceneId: "one", url: "http://127.0.0.1:5173", launch: false }, { root })).toMatchObject({ success: false, issues: [{ message: expect.stringContaining("One host step remains") }] });
+  });
+});
+
 describe("Vue open and CLI", () => {
   it("verifies the dev server serves this project's generated component before opening", async () => {
     const root = await host();
     const { project } = success(await run(root));
+    await wrap(root);
     const fetched: string[] = [];
     vi.spyOn(services, "fetchText").mockImplementation(async url => {
       fetched.push(url);
@@ -200,6 +303,7 @@ describe("Vue open and CLI", () => {
   it("opens a selected scene with its deep link", async () => {
     const root = await host();
     const { project } = success(await run(root));
+    await wrap(root);
     await scene(root);
     vi.spyOn(services, "fetchText").mockResolvedValue(`ProjectPreview ${project!.projectId}`);
     const result = await executeRecipeCommand("open-scene", { sceneId: "one", url: "http://127.0.0.1:5173", launch: false }, { root });

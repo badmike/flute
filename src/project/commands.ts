@@ -246,10 +246,44 @@ async function load(root: string) {
   await installationValid(root);
   return saved.project;
 }
+/** SOURCE OF TRUTH: verifyVueConnection static wrap check.
+ * WHAT: find a host source (outside src/flute) that imports the generated ProjectPreview.vue and renders it.
+ * WHY: without the wrap, ?flute-preview=1 silently shows the plain app; fail early with the exact snippet.
+ * WHERE: services.scanFiles bounds the read; the identifier the file chose is honored, so renamed imports pass.
+ */
+const generatedImport = /import\s+([A-Za-z_$][\w$]*)\s*(?:,\s*\{[^}]*\}\s*)?from\s*["'][^"']*\bflute\/ProjectPreview\.vue["']/g;
+const generatedLazy = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*[^;\n]*?import\(\s*["'][^"']*\bflute\/ProjectPreview\.vue["']\s*\)/g;
+function usesWrapper(text: string, identifier: string) {
+  const code = text.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const kebab = identifier.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+  const names = [identifier, kebab].map(name => name.replace(/[$]/g, "\\$"));
+  return new RegExp(`<(?:${names.join("|")})(?=[\\s/>])`).test(code)
+    || new RegExp(`\\b(?:h|createVNode|createBlock|createElementBlock|_createVNode|_createBlock)\\(\\s*${names[0]}\\b`).test(code);
+}
+async function verifyVueConnection(root: string, project: ProjectState) {
+  if (project.adapter !== "vue") return;
+  const files = await services.scanFiles(root, "src", { extensions: [".vue", ".ts", ".js", ".tsx", ".jsx"], exclude: ["src/flute"] });
+  let imported = false;
+  for (const file of files) {
+    let text: string | undefined;
+    try { text = await services.readText(root, file, 512_000); } catch { continue; }
+    if (text === undefined) continue;
+    for (const pattern of [generatedImport, generatedLazy]) {
+      for (const match of text.matchAll(pattern)) {
+        imported = true;
+        if (usesWrapper(text, match[1])) return;
+      }
+    }
+  }
+  throw fault("missing-connection", (imported
+    ? "The generated Flute component is imported but never rendered in a template. "
+    : "No host source imports the generated Flute component, so ?flute-preview=1 would show the plain app. ") + vueConnectionStep + " Then retry.", vueEntry);
+}
 async function openPreview(root: string, input: z.output<typeof RESOURCES["open-preview"]>) {
   const project = await load(root);
   if (project.adapter) {
     if (project.adapter === "vue") {
+      await verifyVueConnection(root, project);
       // The generated component embeds this project's identity; Vite serves it as a transformed module.
       // Retry within a fixed budget for a starting dev server, and never accept a different project.
       let matched = false;
@@ -313,7 +347,11 @@ export async function executeProjectCommand(operation: unknown, input: unknown, 
     if (operation === "init-project") result = await initialize(root, (parsed.data as z.output<typeof RESOURCES["init-project"]>).packageSource, (parsed.data as z.output<typeof RESOURCES["init-project"]>).adapter);
     else if (operation === "sync-project") result = await synchronize(root);
     else if (operation === "open-preview") result = await openPreview(root, parsed.data as z.output<typeof RESOURCES["open-preview"]>);
-    else result = { success: true, data: { project: await load(root) } };
+    else if (operation === "validate-project") {
+      const project = await load(root);
+      await verifyVueConnection(root, project);
+      result = { success: true, data: { project } };
+    } else result = { success: true, data: { project: await load(root) } };
     return ProjectResultSchema.parse(result);
   } catch (error) {
     const known = error instanceof Error && "code" in error && "target" in error;
@@ -335,6 +373,8 @@ const managedPath = ".flute/integration.json";
 const portablePendingPath = ".flute/integration-pending.json";
 type PortableHost = {adapter:"react"|"vue"|"next-app"|"next-pages";entry:string};
 const vueEntry = "src/flute/ProjectPreview.vue";
+/** SOURCE OF TRUTH: the one Vue host step. init prints it; open/validate repeat it when the wrap is missing. */
+const vueConnectionStep = "One host step remains: in App.vue, import FluteProjectPreview from './flute/ProjectPreview.vue' and wrap the root content, for example <FluteProjectPreview :enabled=\"import.meta.env.DEV\"><RouterView /></FluteProjectPreview> (assign import.meta.env.DEV to a const in <script setup>).";
 async function portableHost(root:string, requested?:string):Promise<PortableHost|undefined> {
   const pkg = await packageAt(root,"package.json");
   if (!pkg) throw fault("unsupported-project","Run flute init in your existing React or Vue application's package directory.");
@@ -384,7 +424,7 @@ async function portableHost(root:string, requested?:string):Promise<PortableHost
 function integrationInfo(project:ProjectState) {
   if (project.adapter === "vue") return {
     kind:"vue",component:vueEntry,
-    instructions:"One host step remains: in App.vue, import FluteProjectPreview from './flute/ProjectPreview.vue' and wrap the root content, for example <FluteProjectPreview :enabled=\"import.meta.env.DEV\"><RouterView /></FluteProjectPreview> (assign import.meta.env.DEV to a const in <script setup>). Scene pairs are <id>.scene.json + <id>.vue in src/flute/scenes; Vite's glob discovers them, and npx flute sync validates them. Open the app with ?flute-preview=1.",
+    instructions:vueConnectionStep+" Scene pairs are <id>.scene.json + <id>.vue in src/flute/scenes; Vite's glob discovers them, and npx flute sync validates them. Open the app with ?flute-preview=1.",
   };
   return {
     kind:project.adapter!,component:"src/flute/ProjectPreview.jsx",
