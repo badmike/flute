@@ -1,6 +1,6 @@
 # Flute by [Web Prodigies](https://www.youtube.com/@webprodigies)
 
-Cinematic 3D scenes made from your **real React UI**. Your coding agent composes the camera, depth, focus and motion. Flute provides the renderer, scene library, playback and MP4 export. Your app keeps its components, providers and styles.
+Cinematic 3D scenes made from your **real React or Vue UI**. Your coding agent composes the camera, depth, focus and motion. Flute provides the renderer, scene library, playback and MP4 export. Your app keeps its components, providers and styles.
 
 Open source under the [MIT license](LICENSE). Runs locally, with your existing coding agent. No account or AI subscription connection is needed in Flute.
 
@@ -44,6 +44,60 @@ For production bundle exclusion, have your agent load the generated module only 
 Use your host's actual development flag, then open its route with `?flute-preview=1`. For a dedicated route, pass `active`. This uses the existing React renderer, including Electron's renderer process; no changes to main/preload, security settings or build tools. A React Native application without browser DOM is not supported.
 
 The underlying `ProjectPreview` export accepts `projectId`, `enabled`, optional `active`, `sceneModules` (lazy module loaders) and `children`. This is the shared integration contract; named framework connections are conveniences, not renderer dependencies. Next.js scene bindings are client components: keep server-only imports in the host's server layer and supply their data through that boundary.
+
+## Vue 3
+
+Flute also works with **Vue 3.5+** apps built with **Vite and `@vitejs/plugin-vue`**. The Vue adapter reuses the same core, scene registry, focus math and video export as React; only the DOM binding and studio UI are native Vue. Nuxt and server-side rendering are not supported yet.
+
+```sh
+git switch -c flute-scenes
+npm install @webprodigies/flute
+npx flute init          # detects vue + vite + @vitejs/plugin-vue and no react-dom (or pass --adapter vue)
+npm run dev
+```
+
+React is an optional peer, so a Vue app does not install it for Flute. Setup writes `src/flute/ProjectPreview.vue` and `FLUTE.md`, and never rewrites `main.ts`. **One step remains:** wrap your app's root content once, for example in `App.vue`:
+
+```vue
+<script setup>
+import FluteProjectPreview from "./flute/ProjectPreview.vue";
+const isDev = import.meta.env.DEV;
+</script>
+
+<template>
+  <FluteProjectPreview :enabled="isDev">
+    <RouterView />
+  </FluteProjectPreview>
+</template>
+```
+
+Open your dev server with `?flute-preview=1` for the scene library, or run `npx flute open --url http://127.0.0.1:5173`. Without that query the app is untouched, and production renders only the slot.
+
+A scene is a versioned `src/flute/scenes/<id>.scene.json` recipe plus a matching `<id>.vue` component. `<Surface>` registers a live subtree: its default slot holds the children and its named `content` slot is the isolated visual leaf (React's `content` prop). Import from `@webprodigies/flute/vue`:
+
+```vue
+<!-- src/flute/scenes/plating.vue -->
+<script setup>
+import { Surface } from "@webprodigies/flute/vue";
+import Dashboard from "../../components/Dashboard.vue";
+import Sidebar from "../../components/Sidebar.vue";
+import Revenue from "../../components/Revenue.vue";
+</script>
+
+<template>
+  <Surface id="dashboard" :style="{ width: '1400px', height: '900px' }">
+    <template #content>
+      <div class="dashboard-backdrop" />
+    </template>
+    <Surface id="sidebar" :style="{ position: 'absolute', left: '0px', top: '0px', width: '230px', height: '900px' }"><Sidebar /></Surface>
+    <Surface id="revenue" :style="{ position: 'absolute', left: '270px', top: '210px', width: '628px', height: '505px' }"><Revenue /></Surface>
+  </Surface>
+</template>
+```
+
+Vue does not add units to numeric style values, so write `'400px'`, not `400`. The recipe JSON (camera, focus, motion, node IDs) is identical to React's. Providers from `provide`/`inject` must be provided inside the scene component (as `WholeScene.vue` does in `local-project-vue/`). `npx flute sync` validates `.vue` pairs; the Vite glob discovers them, so no catalog file is written.
+
+Export is the same as for React: `npx flute export --url "http://127.0.0.1:5173/?flute-preview=1&flute-scene=plating" --output plating.mp4 --fps 60`. Other commands (`scenes`, `validate`, `load`, `open --scene`, `snapshot`) work unchanged. The `local-project-vue/` sample shows the complete setup; see its README.
 
 ## Give your coding agent this prompt
 
@@ -93,7 +147,7 @@ npm run setup:local
 npm run dev
 ```
 
-The separate `local-project/` exercises installation with real scenes; it is not shipped in the package. The unconnected product opens with an honest empty scene list.
+The separate `local-project/` (React) and `local-project-vue/` (Vue, `npm run setup:local:vue`) exercise installation with real scenes; they are not shipped in the package. The unconnected product opens with an honest empty scene list.
 
 Read [architecture](docs/architecture.md) for canonical code owners and [product](docs/product.md) for scope. The installed `flute guide` is the authoritative authoring reference. Build and boundary checks reject architectural drift.
 

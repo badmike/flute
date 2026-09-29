@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "projectId": "b1b72849-4033-4775-913c-97657b80fe6c",
+  "entry": "src/flute/ProjectPreview.vue",
+  "packageManager": "npm",
+  "adapter": "vue"
+}
