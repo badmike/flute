@@ -35,7 +35,7 @@ const layers = {
   runtime: { local: ['core', 'runtime'], external: ['zod'] },
   // Framework-neutral DOM code shared by every adapter; it may not import any UI framework.
   dom: { local: ['core', 'dom'], external: ['zod'] },
-  react: { local: ['core', 'runtime', 'dom', 'react'], external: ['react', 'react-dom', 'react-error-boundary', 'zod'] },
+  react: { local: ['core', 'runtime', 'dom', 'react'], external: ['react', 'react-dom', 'zod'] },
   preview: { local: ['core', 'dom', 'react', 'preview'], external: ['react', 'react-dom'] },
   vue: { local: ['core', 'dom', 'vue'], external: ['vue', 'zod'] },
   previewVue: { local: ['core', 'dom', 'vue', 'previewVue'], external: ['vue'] },

@@ -48,7 +48,6 @@
     "test:portable:react": "node scripts/check-portable.mjs react"
   },
   "dependencies": {
-    "react-error-boundary": "6.1.5",
     "zod": "4.3.6",
     "typescript": "5.9.3"
   },

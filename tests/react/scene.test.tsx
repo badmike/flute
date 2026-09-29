@@ -417,6 +417,59 @@ describe("live React spatial adapter", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("reports onError once on catch and onReset on retry and on resetKey recovery", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const onError = vi.fn();
+    const onReset = vi.fn();
+    let broken = true;
+    function Host() {
+      if (broken) throw new Error("Host exploded");
+      return <span>Healthy host</span>;
+    }
+    const tree = (key: number) => (
+      <SceneErrorBoundary resetKey={key} onError={onError} onReset={onReset}>
+        <Host />
+      </SceneErrorBoundary>
+    );
+    const view = render(tree(0));
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect((onError.mock.calls[0][0] as Error).message).toBe("Host exploded");
+    expect(onReset).not.toHaveBeenCalled();
+    const alert = screen.getByRole("alert");
+    expect(alert.hasAttribute("data-flute-error")).toBe(true);
+    expect(alert.textContent).toContain("Unable to render the Flute scene.");
+    broken = false;
+    fireEvent.click(screen.getByRole("button", { name: "Retry scene" }));
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(onReset).toHaveBeenLastCalledWith();
+    expect(screen.getByText("Healthy host")).toBeTruthy();
+    broken = true;
+    view.rerender(tree(0));
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(onError).toHaveBeenCalledTimes(2);
+    // Still failing: an unchanged key keeps the fallback and does not call onReset.
+    view.rerender(tree(0));
+    expect(onReset).toHaveBeenCalledTimes(1);
+    broken = false;
+    view.rerender(tree(1));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("Healthy host")).toBeTruthy();
+    expect(onReset).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reset an error caught in the same update that changed resetKey", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    let broken = false;
+    function Host() {
+      if (broken) throw new Error("late failure");
+      return <span>Fine</span>;
+    }
+    const view = render(<SceneErrorBoundary resetKey={0}><Host /></SceneErrorBoundary>);
+    broken = true;
+    view.rerender(<SceneErrorBoundary resetKey={1}><Host /></SceneErrorBoundary>);
+    expect(screen.getByRole("alert").textContent).toContain("late failure");
+  });
+
   it.each(["failed", null, undefined])("recovers a non-Error thrown value: %s", (failure) => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     let broken = true;

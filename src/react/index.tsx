@@ -1,5 +1,5 @@
-import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import {
+  Component,
   createContext,
   useContext,
   useEffect,
@@ -342,25 +342,56 @@ export type SceneErrorBoundaryProps = {
 };
 /** SOURCE OF TRUTH: scene render recovery.
  * WHAT: SceneErrorBoundary owns the scene fallback and resetKey adapter.
- * WHY: preserve a consistent recovery action for failed host components.
- * WHERE: react-error-boundary catches render failures; callers keep their existing API.
+ * WHY: preserve a consistent recovery action for failed host components without a third-party
+ *      dependency (a React peer would otherwise be installed into Vue hosts).
+ * WHERE: a small class component catches render failures; callers keep their existing API.
  */
+type BoundaryState = { failed: boolean; error: unknown };
+const HEALTHY: BoundaryState = { failed: false, error: null };
+
+class SceneBoundary extends Component<SceneErrorBoundaryProps, BoundaryState> {
+  state: BoundaryState = HEALTHY;
+
+  static getDerivedStateFromError(error: unknown): BoundaryState {
+    return { failed: true, error };
+  }
+
+  componentDidCatch(error: unknown) {
+    this.props.onError?.(error);
+  }
+
+  componentDidUpdate(previous: SceneErrorBoundaryProps, previousState: BoundaryState) {
+    // A key change only recovers an error that was already showing; the update that caught it must not reset it.
+    if (this.state.failed && previousState.failed && !Object.is(previous.resetKey, this.props.resetKey)) this.reset();
+  }
+
+  reset = () => {
+    this.props.onReset?.();
+    this.setState(HEALTHY);
+  };
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return <SceneErrorFallback error={this.state.error} onRetry={this.reset} />;
+  }
+}
+
 export function SceneErrorBoundary({ children, resetKey, onError, onReset }: SceneErrorBoundaryProps) {
   return (
-    <ErrorBoundary FallbackComponent={SceneErrorFallback} resetKeys={[resetKey]} onError={onError} onReset={onReset}>
+    <SceneBoundary resetKey={resetKey} onError={onError} onReset={onReset}>
       {children}
-    </ErrorBoundary>
+    </SceneBoundary>
   );
 }
 
-function SceneErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+function SceneErrorFallback({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const message = error instanceof Error ? error.message : String(error);
   return (
     <div role="alert" data-flute-error="">
       <strong>Unable to render the Flute scene.</strong>
       <p>{message}</p>
       <p>Correct the component or scene configuration, then retry.</p>
-      <button type="button" onClick={resetErrorBoundary}>
+      <button type="button" onClick={onRetry}>
         Retry scene
       </button>
     </div>
