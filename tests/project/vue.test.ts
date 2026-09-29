@@ -80,6 +80,9 @@ describe("Vue host connection", () => {
     expect(handoff).toContain("@webprodigies/flute/vue/preview");
     expect(handoff).toContain("<id>.vue");
     expect(handoff).not.toContain("`@webprodigies/flute/preview`");
+    // Byte-stable for existing Vue hosts: a changed handoff would make their managed FLUTE.md conflict.
+    expect(handoff).toContain("This is a Vue 3 project: scene bindings are `.vue` single-file components that use `<Surface>` slots. This app's recipe directory is `src/flute/scenes` (`<id>.scene.json` plus `<id>.vue`); read capabilities.api.vue");
+    expect(handoff).toBe(await readFile(fileURLToPath(new URL("../../local-project-vue/FLUTE.md", import.meta.url)), "utf8"));
     expect(success(await run(root)).changed).toBe(false);
     // The connection step is the host's: validate reports it until App.vue is wrapped.
     expect(await run(root, "validate-project")).toMatchObject({ success: false, issues: [{ code: "missing-connection" }] });

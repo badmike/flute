@@ -55,7 +55,7 @@ export function formatOnboarding(result: Extract<ProjectResult, { success: true 
   };
   const step = (label: string, detail?: string) => `${paint(tick, "accent")} ${line(label)}${detail ? "\n  " + line(detail, "quiet") : ""}`;
   const kind = integration?.kind ?? project?.adapter;
-  const host = kind === "next-app" ? "Next.js · App Router" : kind === "next-pages" ? "Next.js · Pages Router" : kind === "react" ? "React · Custom renderer" : kind === "vue" ? "Vue · Vite" : "React · Vite";
+  const host = kind === "next-app" ? "Next.js · App Router" : kind === "next-pages" ? "Next.js · Pages Router" : kind === "react" ? "React · Custom renderer" : kind === "vue" ? "Vue · Vite" : kind === "nuxt" ? "Nuxt · Vue 3" : "React · Vite";
   const rows = [step("Detected " + host)];
   if (project) rows.push(step(changed ? "Added your development connection" : "Verified your existing connection", integration?.route ?? integration?.component ?? project.entry));
   if (handoff) rows.push(step("Scene source location", "src/flute/scenes"), step("AI guide ready", handoff.path));

@@ -7,7 +7,7 @@ import { z } from "zod";
  */
 export const InitProjectSchema = z.strictObject({
   packageSource: z.string().min(1).optional(),
-  adapter: z.enum(["auto", "react", "vue"]).optional(),
+  adapter: z.enum(["auto", "react", "vue", "nuxt"]).optional(),
 });
 export const SyncProjectSchema = z.strictObject({});
 export const LoadProjectSchema = z.strictObject({});
@@ -24,7 +24,7 @@ export const ProjectStateSchema = z.strictObject({
   projectId: z.uuid(),
   entry: z.string().min(1),
   packageManager: z.literal("npm"),
-  adapter: z.enum(["next-app", "next-pages", "react", "vue"]).optional(),
+  adapter: z.enum(["next-app", "next-pages", "react", "vue", "nuxt"]).optional(),
 });
 export const ProjectResultSchema = z.discriminatedUnion("success", [
   z.strictObject({success:z.literal(true),data:z.strictObject({

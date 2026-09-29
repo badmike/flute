@@ -20,7 +20,7 @@ Start with npx flute guide to learn spatial composition, camera, focus and motio
 
 flute --version
 flute guide [--json]
-flute init [--adapter auto|react|vue] [--project DIR] [--package TARBALL] [--url ORIGIN] [--no-open]
+flute init [--adapter auto|react|vue|nuxt] [--project DIR] [--package TARBALL] [--url ORIGIN] [--no-open]
 flute open [--scene ID] [--project DIR] [--url ORIGIN] [--no-open]
 flute sync [--project DIR]
 flute scenes [--project DIR] [--json]
@@ -29,7 +29,7 @@ flute load [--scene ID] [--project DIR] [--json]
 flute validate [--project DIR]
 flute export --url URL --output FILE [--fps 30|60|120] [--width N --height N] [--project DIR] [--json]
 
-After installing @webprodigies/flute locally, run npx flute init in your React DOM app (React 18.2+ or 19) or Vue 3.5+ app built with Vite and @vitejs/plugin-vue. Next.js and Vite have automatic connections; other React hosts get a portable wrapper. Vue hosts get src/flute/ProjectPreview.vue to wrap around the app's root content (main.ts is never rewritten).
+After installing @webprodigies/flute locally, run npx flute init in your React DOM app (React 18.2+ or 19), Vue 3.5+ app built with Vite and @vitejs/plugin-vue, or Nuxt 3/4 app. Next.js, Nuxt and Vite have automatic connections; other React hosts get a portable wrapper. Vue hosts get src/flute/ProjectPreview.vue to wrap around the app's root content (main.ts is never rewritten). Nuxt hosts get a development-only /flute page in their pages directory and no wrap (production answers 404).
 --package is optional when Flute is already installed; it accepts a local .tgz for setup.
 init preserves the existing root/providers and creates FLUTE.md for your coding agent.
 Add --url to initialize and open in one command.

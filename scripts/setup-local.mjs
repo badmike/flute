@@ -3,7 +3,7 @@ import {mkdirSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 const root=fileURLToPath(new URL('../',import.meta.url));
-// Optional argument selects the sample host: local-project (React, default) or local-project-vue.
+// Optional argument selects the sample host: local-project (React, default), local-project-vue or local-project-nuxt.
 const project=process.argv[2]??'local-project';
 mkdirSync(path.join(root,'.local-package'),{recursive:true});
 function run(args,cwd=root,stdio='inherit'){const result=spawnSync('npm',args,{cwd,stdio,encoding:'utf8'});if(result.status!==0)process.exit(result.status??1);return result.stdout}

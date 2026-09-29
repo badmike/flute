@@ -134,7 +134,7 @@ it("routes the Vue adapter and validates it only for init",async()=>{
  await runCli(["init","--adapter","vue"],context,execute);
  expect(execute.mock.calls).toEqual([["init-project",{adapter:"vue"},context]]);
  expect((await runCli(["open","--adapter","vue"],context,execute)).code).toBe(2);
- expect((await runCli(["--help"],context,execute)).stdout).toContain("[--adapter auto|react|vue]");
+ expect((await runCli(["--help"],context,execute)).stdout).toContain("[--adapter auto|react|vue|nuxt]");
 });
 it("presents the Vue connection instructions without React wording",async()=>{
  const vue:ProjectResult={success:true,data:{

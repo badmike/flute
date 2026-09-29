@@ -19,6 +19,7 @@ try{
  // The copied host already carries its generated connection; init must recognize it and change nothing.
  const init=JSON.parse(await run([process.execPath,cli,'init','--json']));assert.equal(init.success,true);assert.equal(init.data.project.adapter,'vue');
  assert.equal(JSON.parse(await run([process.execPath,cli,'sync','--json'])).success,true);
+ assert.equal(JSON.parse(await run([process.execPath,cli,'validate','--json'])).success,true,'validate sees the App.vue wrap');
  const list=JSON.parse(await run([process.execPath,cli,'scenes','--json']));assert.deepEqual(list.data.scenes.map(s=>s.binding),['customer-focus','overview','plating'].map(id=>`src/flute/scenes/${id}.vue`));
  await run(['npm','run','build']);
  const n=await port();const origin=`http://127.0.0.1:${n}`;

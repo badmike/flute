@@ -1,6 +1,6 @@
 # Flute by [Web Prodigies](https://www.youtube.com/@webprodigies)
 
-Cinematic 3D scenes made from your **real React or Vue UI**. Your coding agent composes the camera, depth, focus and motion. Flute provides the renderer, scene library, playback and MP4 export. Your app keeps its components, providers and styles.
+Cinematic 3D scenes made from your **real React, Vue or Nuxt UI**. Your coding agent composes the camera, depth, focus and motion. Flute provides the renderer, scene library, playback and MP4 export. Your app keeps its components, providers and styles.
 
 Open source under the [MIT license](LICENSE). Runs locally, with your existing coding agent. No account or AI subscription connection is needed in Flute.
 
@@ -23,7 +23,7 @@ Keep your existing dev server if it is already running. Use the URL it prints:
 npx flute open --url http://127.0.0.1:5173
 ```
 
-In Next.js, open `/flute` on your existing dev server (usually port 3000). Setup adds this development-only route without rewriting your app/layout/providers. In Vite, setup connects the existing root. Both create `FLUTE.md`. Repeating setup is safe; conflicting user-owned files get a repair message. Normal app routes and production builds remain ordinary. One installed app owns one scene catalog.
+In Next.js and Nuxt, open `/flute` on your existing dev server (usually port 3000). Setup adds this development-only route without rewriting your app/layout/providers. In Vite, setup connects the existing root. Both create `FLUTE.md`. Repeating setup is safe; conflicting user-owned files get a repair message. Normal app routes and production builds remain ordinary. One installed app owns one scene catalog.
 
 ## Other React hosts (including Electron renderers)
 
@@ -47,7 +47,7 @@ The underlying `ProjectPreview` export accepts `projectId`, `enabled`, optional 
 
 ## Vue 3
 
-Flute also works with **Vue 3.5+** apps built with **Vite and `@vitejs/plugin-vue`**. The Vue adapter reuses the same core, scene registry, focus math and video export as React; only the DOM binding and studio UI are native Vue. Nuxt and server-side rendering are not supported yet.
+Flute also works with **Vue 3.5+** apps built with **Vite and `@vitejs/plugin-vue`**. The Vue adapter reuses the same core, scene registry, focus math and video export as React; only the DOM binding and studio UI are native Vue. Nuxt 3/4 is covered in its own section below; `Scene` and `Surface` also render on the server (they touch browser APIs only after mount).
 
 ```sh
 git switch -c flute-scenes
@@ -56,7 +56,7 @@ npx flute init          # detects vue + vite + @vitejs/plugin-vue and no react-d
 npm run dev
 ```
 
-React is an optional peer, so a Vue app does not install it for Flute. Setup writes `src/flute/ProjectPreview.vue` and `FLUTE.md`, and never rewrites `main.ts`. **One step remains:** wrap your app's root content once, for example in `App.vue`:
+React is an optional peer and Flute has no React dependency of its own, so a Vue app installs no React at all. Setup writes `src/flute/ProjectPreview.vue` and `FLUTE.md`, and never rewrites `main.ts`. **One step remains:** wrap your app's root content once, for example in `App.vue`:
 
 ```vue
 <script setup>
@@ -100,6 +100,21 @@ import Revenue from "../../components/Revenue.vue";
 Numeric style values on `Scene`/`Surface` are pixels, like React (`:style="{ width: 400 }"` renders `width: 400px`; unitless properties such as `opacity` and `zIndex` and `0` are left alone). The recipe JSON (camera, focus, motion, node IDs) is identical to React's. Providers from `provide`/`inject` must be provided inside the scene component (as `WholeScene.vue` does in `local-project-vue/`). `npx flute sync` validates `.vue` pairs; the Vite glob discovers them, so no catalog file is written.
 
 Export is the same as for React: `npx flute export --url "http://127.0.0.1:5173/?flute-preview=1&flute-scene=plating" --output plating.mp4 --fps 60`. Other commands (`scenes`, `validate`, `load`, `open --scene`, `snapshot`) work unchanged. The `local-project-vue/` sample shows the complete setup; see its README.
+
+## Nuxt 3 and 4
+
+```sh
+git switch -c flute-scenes
+npm install @webprodigies/flute
+npx flute init          # detects the nuxt dependency (or pass --adapter nuxt)
+npm run dev
+```
+
+Setup writes one development-only route, `<pages>/flute.vue` (`app/pages` in Nuxt 4, `pages` in Nuxt 3, or the pages directory under a static `srcDir`), and `FLUTE.md`. It never touches `app.vue`, layouts, your pages or `nuxt.config`, and there is **no wrap step**: like the Next.js studio, `/flute` renders only the scene library, because scene bindings are standalone components. Production answers `/flute` with a 404 and bundles neither the studio nor any scene. Open it with `npx flute open --url http://127.0.0.1:3000` (which verifies the server HTML of `/flute?flute-preview=1` belongs to this project) and export from `http://127.0.0.1:3000/flute?flute-preview=1&flute-scene=<id>`.
+
+Scenes live in `src/flute/scenes/<id>.scene.json` plus `<id>.vue` at the **project root** (also in Nuxt 4, where the app itself is under `app/`). Import app components in scene files with the `~` alias and explicit imports. `scenes`, `validate`, `sync`, `snapshot` and `export` work as for Vue.
+
+Nuxt 2 is refused. An app with no pages directory (a single `app.vue`, router off) is refused too, because adding `/flute` would switch vue-router on and change how the app renders; add `pages/index.vue` first. The `local-project-nuxt/` sample is a Nuxt 4 app: `npm run build && npm run setup:local:nuxt`.
 
 ## Give your coding agent this prompt
 

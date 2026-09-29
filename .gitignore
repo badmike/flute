@@ -16,6 +16,10 @@ test-results/
 
 .local-package/
 local-project/.flute/init-pending.json
+local-project*/package-lock.json
+local-project-nuxt/.nuxt/
+local-project-nuxt/.output/
+local-project-nuxt/.data/
 
 .release/
 

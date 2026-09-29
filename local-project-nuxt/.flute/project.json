@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "projectId": "7602353b-a971-4518-876b-c0d380e49aa2",
+  "entry": "app/pages/flute.vue",
+  "packageManager": "npm",
+  "adapter": "nuxt"
+}

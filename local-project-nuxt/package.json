@@ -1,0 +1,16 @@
+{
+  "name": "flute-local-project-nuxt",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --host 127.0.0.1",
+    "build": "nuxt build",
+    "preview": "nuxt preview"
+  },
+  "dependencies": {
+    "@webprodigies/flute": "file:../.local-package/webprodigies-flute-0.1.2.tgz",
+    "nuxt": "4.5.2",
+    "vue": "3.5.43"
+  }
+}
