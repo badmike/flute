@@ -28,7 +28,7 @@ import {
 } from "../core";
 import { type MotionInput } from "../core/motion";
 import { FocusFilter } from "./FocusFilter";
-import { createRegistry, type Registry } from "./registry";
+import { createRegistry, type Registry } from "../dom/registry";
 
 /** SOURCE OF TRUTH: Scene / Surface / Motion live DOM adapter.
  * WHAT: bind existing React subtrees to the canonical core spatial operation.

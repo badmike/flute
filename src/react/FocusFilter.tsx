@@ -1,23 +1,14 @@
-import { FOCUS_BANDS, focusMask, type EvaluatedNode } from "../core";
-import DEPTH_X from "./depth-x.png";
-import DEPTH_Y from "./depth-y.png";
+import type { EvaluatedNode } from "../core";
+import { DEPTH_TEXTURES, focusFilterModel } from "../dom/focus-filter";
 /** SOURCE OF TRUTH: FocusFilter presentation.
  * WHAT: two cached linear depth textures and native SVG tables blend live Gaussian samples.
  * WHY: reuse cached raster ramps; never encode/decode image documents per frame.
- * WHERE: core/spatial supplies the canonical weights; Surface filters visual leaves.
+ * WHERE: core/spatial supplies the canonical weights; dom/focus-filter computes the model; Surface filters visual leaves.
  * Uses native feImage sampling and feComponentTransfer table interpolation.
  */
 export function FocusFilter({ id, node }: { id: string; node: EvaluatedNode }) {
-  const { focus: f, width, height } = node;
-  const pad = (3 * f.maxBlur) / f.scale;
-  const masks = Array.from({ length: FOCUS_BANDS + 1 }, (_, i) =>
-    focusMask(f, width, height, i),
-  );
-  const mask = masks[0];
-  // Zero-weight kernels contribute no pixels. Keep only active bands so many
-  // small live layers do not pay for every possible blur radius.
-  const bands = masks.map((mask, index) => ({mask, index}))
-    .filter(({mask}) => mask.stops.some(weight => weight > 0));
+  const { pad, width, height, mask, bands, extent, margin } = focusFilterModel(node);
+  const DEPTH_X = DEPTH_TEXTURES.x, DEPTH_Y = DEPTH_TEXTURES.y;
 
   return (
     <svg
@@ -42,15 +33,7 @@ export function FocusFilter({ id, node }: { id: string; node: EvaluatedNode }) {
           <feImage href={DEPTH_Y} x={-pad} y={-pad} width={width+2*pad} height={height+2*pad} preserveAspectRatio="none" result="axisY" />
           <feComponentTransfer in="axisY" result="depthY"><feFuncA type="table" tableValues={mask.reverseY ? "1 0" : "0 1"} /></feComponentTransfer>
           <feComposite in="depthX" in2="depthY" operator="arithmetic" k2={mask.xWeight} k3={mask.yWeight} result="depth" />
-          {bands.map(({mask, index: i}, position) => (
-            <FilterBand
-              key={i}
-              index={i}
-              node={node}
-              weights={mask.stops}
-              previous={position ? bands[position - 1].index : undefined}
-            />
-          ))}
+          {bands.map(band => <FilterBand key={band.index} width={width} height={height} extent={extent} margin={margin} {...band} />)}
         </filter>
       </defs>
     </svg>
@@ -58,60 +41,41 @@ export function FocusFilter({ id, node }: { id: string; node: EvaluatedNode }) {
 }
 function FilterBand({
   index: i,
-  node,
+  width,
+  height,
+  extent,
+  margin,
   weights,
   previous,
+  deviation,
 }: {
   index: number;
-  node: EvaluatedNode;
+  width: number;
+  height: number;
+  extent: number;
+  margin: number;
   weights: number[];
   previous?: number;
+  deviation: number;
 }) {
-  const { focus: f, width, height } = node;
-
   return (
     <>
-      <feGaussianBlur
-        in="SourceGraphic"
-        stdDeviation={(f.maxBlur * i) / FOCUS_BANDS / f.scale}
-        result={`blur${i}`}
-      />
+      <feGaussianBlur in="SourceGraphic" stdDeviation={deviation} result={`blur${i}`} />
       <feComponentTransfer
         in="depth"
-        x={(-3 * f.maxBlur) / f.scale}
-        y={(-3 * f.maxBlur) / f.scale}
-        width={width + (6 * f.maxBlur) / f.scale}
-        height={height + (6 * f.maxBlur) / f.scale}
+        x={margin}
+        y={margin}
+        width={width + extent}
+        height={height + extent}
         result={`mask${i}`}
       >
-        <feFuncA
-          type="table"
-          tableValues={weights.join(" ")}
-        />
+        <feFuncA type="table" tableValues={weights.join(" ")} />
       </feComponentTransfer>
-      <feComposite
-        in={`blur${i}`}
-        in2={`mask${i}`}
-        operator="in"
-        result={`part${i}`}
-      />
+      <feComposite in={`blur${i}`} in2={`mask${i}`} operator="in" result={`part${i}`} />
       {previous === undefined ? (
-        <feComposite
-          in={`part${i}`}
-          in2={`part${i}`}
-          operator="arithmetic"
-          k2={1}
-          result={`sum${i}`}
-        />
+        <feComposite in={`part${i}`} in2={`part${i}`} operator="arithmetic" k2={1} result={`sum${i}`} />
       ) : (
-        <feComposite
-          in={`sum${previous}`}
-          in2={`part${i}`}
-          operator="arithmetic"
-          k2={1}
-          k3={1}
-          result={`sum${i}`}
-        />
+        <feComposite in={`sum${previous}`} in2={`part${i}`} operator="arithmetic" k2={1} k3={1} result={`sum${i}`} />
       )}
     </>
   );

@@ -33,8 +33,12 @@ const owners = new Map([
 const layers = {
   core: { local: ['core'], external: ['zod'] },
   runtime: { local: ['core', 'runtime'], external: ['zod'] },
-  react: { local: ['core', 'runtime', 'react'], external: ['react', 'react-dom', 'react-error-boundary', 'zod'] },
-  preview: { local: ['core', 'react', 'preview'], external: ['react', 'react-dom'] },
+  // Framework-neutral DOM code shared by every adapter; it may not import any UI framework.
+  dom: { local: ['core', 'dom'], external: ['zod'] },
+  react: { local: ['core', 'runtime', 'dom', 'react'], external: ['react', 'react-dom', 'react-error-boundary', 'zod'] },
+  preview: { local: ['core', 'dom', 'react', 'preview'], external: ['react', 'react-dom'] },
+  vue: { local: ['core', 'dom', 'vue'], external: ['vue', 'zod'] },
+  previewVue: { local: ['core', 'dom', 'vue', 'previewVue'], external: ['vue'] },
   commands: { local: ['core', 'commands', 'projectAdapter', 'projectErrors', 'services'], external: ['zod'] },
   projectAdapter: { local: ['core', 'projectAdapter', 'projectErrors'], external: ['typescript', 'zod'] },
   projectErrors: { local: ['projectErrors'], external: [] },
@@ -64,9 +68,10 @@ const layerOf = name => {
   if (/^src\/export\/commands\.[cm]?[jt]s$/.test(name)) return 'exportCommands';
   if (name.startsWith('src/export/')) return 'exportServices';
   if (name.startsWith('src/project/')) return 'projectAdapter';
-  return /^src\/(core|runtime|react|preview|cli)(?:\/|$)/.exec(name)?.[1];
+  if (name.startsWith('src/preview-vue/')) return 'previewVue';
+  return /^src\/(core|runtime|dom|react|preview|vue|cli)(?:\/|$)/.exec(name)?.[1];
 };
-const browserLayers = new Set(['react', 'preview']);
+const browserLayers = new Set(['dom', 'react', 'preview', 'vue', 'previewVue']);
 const packageOf = name => name.startsWith('@') ? name.split('/').slice(0, 2).join('/') : name.split('/')[0];
 
 /** Returns actionable diagnostics; fixtures and the CLI use exactly the same rules. */

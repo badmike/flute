@@ -6,7 +6,7 @@ import { usePreviewSession } from "./session";
 import { usePreviewConnection, type PreviewHot } from "./connection";
 import { BrandAttribution } from "./BrandAttribution";
 import { GettingStarted } from "./GettingStarted";
-import { previewTheme } from "./theme";
+import { previewTheme } from "../dom/theme";
 
 /** SOURCE OF TRUTH: ScenePreview.
  * WHAT: the product's shared browser viewport, playback, source recovery and export entry.

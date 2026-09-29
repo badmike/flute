@@ -1,10 +1,11 @@
 import type { Measurement, TransformInput, SceneIssue } from "../core";
 
-/** SOURCE OF TRUTH: React registration and untransformed layout measurements.
+/** SOURCE OF TRUTH: framework-neutral registration and untransformed layout measurements.
  * WHAT: one ephemeral registry per Scene; entries use mount identity, not public IDs.
  * WHY: duplicate IDs must reach core validation, and StrictMode cleanup must remove
  * only its own binding. No component instances or host data enter scene metadata.
- * WHERE: index.tsx supplies bindings; core owns all spatial policy and evaluation.
+ * WHERE: react/ and vue/ adapters supply bindings; core owns all spatial policy and evaluation.
+ * Shared by every framework adapter: this module imports no UI framework.
  */
 export type Binding = {
   token: symbol;
@@ -49,7 +50,7 @@ function origin(element: HTMLElement) {
 
 // SOURCE OF TRUTH: unfiltered group content diagnostics. Spatial ancestors cannot
 // be filtered without flattening descendants. Check actual rendered host content,
-// including custom React components; never silently leave labels/media sharp.
+// including custom framework components; never silently leave labels/media sharp.
 function uncoveredContent(root:Element):boolean {
   for (const child of root.childNodes) {
     if (child.nodeType===3 && child.textContent?.trim()) return true;

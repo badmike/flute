@@ -1,29 +1,18 @@
 import { useEffect, useState } from "react";
+import { bindPreviewConnection, type PreviewHot } from "../dom/connection";
 
-/** SOURCE OF TRUTH: Vite preview connection adapter.
- * WHAT: translate host development events into connection/recovery messages.
+/** SOURCE OF TRUTH: React preview connection adapter.
+ * WHAT: expose the shared Vite HMR connection state machine as a React hook.
  * WHY: an installed production bundle cannot capture the host's import.meta.hot.
- * WHERE: callers explicitly pass their hot context; no server or polling is created.
+ * WHERE: callers explicitly pass their hot context; dom/connection owns the transitions.
  */
-export type PreviewHot = {
-  on(event: string, listener: (payload: any) => void): void;
-  off(event: string, listener: (payload: any) => void): void;
-};
+export type { PreviewHot };
 export function usePreviewConnection(hot: PreviewHot | undefined, pause: () => void) {
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState({connected: true, updating: false, error: ""});
   useEffect(() => {
     if (!hot) return;
-    const handlers: Record<string, (payload: any) => void> = {
-      "vite:ws:disconnect": () => { pause(); setState({connected: false, updating: false, error: ""}); },
-      "vite:ws:connect": () => setState({connected: true, updating: false, error: ""}),
-      "vite:beforeUpdate": () => { pause(); setState({connected: true, updating: true, error: ""}); },
-      "vite:afterUpdate": () => {setState({connected: true, updating: false, error: ""});setGeneration(value => value + 1);},
-      "vite:error": payload => { pause(); setState({connected: true, updating: false,
-        error: typeof payload?.err?.message === "string" ? payload.err.message : "The source could not be updated."}); },
-    };
-    for (const [event, callback] of Object.entries(handlers)) hot.on(event, callback);
-    return () => { for (const [event, callback] of Object.entries(handlers)) hot.off(event, callback); };
+    return bindPreviewConnection(hot, pause, setState, () => setGeneration(value => value + 1));
   }, [hot, pause]);
   return {...state, generation};
 }

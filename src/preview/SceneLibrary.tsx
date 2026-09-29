@@ -5,7 +5,7 @@ import {ScenePreview} from './ScenePreview';
 import type {PreviewHot} from './connection';
 import {BrandAttribution} from './BrandAttribution';
 import {GettingStarted} from './GettingStarted';
-import {libraryTheme} from './library-theme';
+import {libraryTheme} from '../dom/library-theme';
 
 /** SOURCE OF TRUTH: SceneLibrary.
  * WHAT: list and navigate the host's validated source recipes through one catalog.
