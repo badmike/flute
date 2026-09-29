@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { BrandAttribution } from './BrandAttribution';
+import { FIRST_SCENE_PROMPT } from '../dom/onboarding';
 
-/** SOURCE OF TRUTH: GettingStarted, FIRST_SCENE_PROMPT.
+/** SOURCE OF TRUTH: GettingStarted.
  * WHAT: installed setup instructions and a copyable external-agent handoff.
  * WHY: empty library and standalone preview share the same honest authoring path.
  * WHERE: SceneLibrary and ScenePreview; CLI guide / generated FLUTE.md own authoring rules.
  */
-const FIRST_SCENE_PROMPT = 'Read FLUTE.md and run npx flute guide. Inspect this app’s existing components, styles and providers. Ask me which UI to feature, then create a Flute scene using the real components, intentional perspective, focal depth and motion. Save the recipe and matching component in src/flute/scenes/ so they appear in the scene library. Keep the app’s original design and data context.';
 
 export function GettingStarted({label = 'Get started'}: {label?: string}) {
   const [copyState, setCopyState] = useState<'idle' | 'copying' | 'copied' | 'failed'>('idle');

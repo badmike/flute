@@ -57,6 +57,7 @@ try {
   assert.equal(metadata.license,'MIT');
   assert.notEqual(metadata.private,true);
   assert.ok(packed[0].files.some(f=>f.path==='dist/library/preview.js'));
+  for(const entry of ['vue.js','vue-preview.js','types/vue/index.d.ts','types/preview-vue/index.d.ts'])assert.ok(packed[0].files.some(f=>f.path==='dist/library/'+entry),'Vue entry '+entry);
   assert.ok(!packed[0].files.some(f=>f.path.includes('.env')));
   }
   await ok('npm',['install','--ignore-scripts','--no-audit','--no-fund']);

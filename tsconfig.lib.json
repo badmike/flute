@@ -15,8 +15,11 @@
   "include": [
     "src/index.ts",
     "src/core",
+    "src/dom",
     "src/react",
-    "src/preview"
+    "src/preview",
+    "src/vue",
+    "src/preview-vue"
   ],
   "exclude": [
     "demo",

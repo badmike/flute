@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useRef,useState,type ComponentType,type MouseEvent} from 'react';
-import {FLUTE_BRAND,RESOURCES,motionDuration,matrixFor,TransformSchema} from '../core';
+import {FLUTE_BRAND,RESOURCES,motionDuration} from '../core';
+import {LIBRARY_ROW,LIBRARY_CAMERA,LIBRARY_FOCUS,visibleRows} from '../dom/library-layout';
 import {Scene,Surface,SceneErrorBoundary} from '../react';
 import {ScenePreview} from './ScenePreview';
 import type {PreviewHot} from './connection';
@@ -16,26 +17,7 @@ import {libraryTheme} from '../dom/library-theme';
 export type SceneLibraryProps={sources?:Record<string,unknown>;bindings?:Record<string,ComponentType>;hot?:PreviewHot;backHref?:string};
 const EMPTY_SOURCES:Record<string,unknown>={};
 const EMPTY_BINDINGS:Record<string,ComponentType>={};
-const ROW=150;
-// Positive X tilt recedes at the top and approaches the viewer at the bottom.
-// The lens stays fixed at the viewport center while the entire list travels through it.
-const camera={perspective:1400,rotateX:42};
-const focus={distance:1400,fStop:4,focalLength:220,maxBlur:7};
-const view=matrixFor(TransformSchema.parse({rotateX:camera.rotateX}));
-// Viewport culling consumes the canonical camera matrix, not flat scroll indices.
-// Invert the projected vertical coordinate on this list's z=0 plane. Keep a full
-// row plus the blur footprint beyond each edge; a visible horizon retains its tail.
-function visibleRows(scroll:number,height:number,count:number){
- const localY=(screenY:number)=>{
-  const y=screenY-height/2;
-  const denominator=camera.perspective*view[5]+y*view[9];
-  return denominator<=0?-Infinity:height/2+y*camera.perspective/denominator;
- };
- const top=localY(-3*focus.maxBlur);
- const bottom=localY(height+3*focus.maxBlur);
- return {start:Math.max(0,Math.floor((scroll+top-(height/2-ROW/2))/ROW)-1),
-  end:Math.min(count,Math.ceil((scroll+bottom-(height/2-ROW/2))/ROW)+2)};
-}
+const ROW=LIBRARY_ROW,camera=LIBRARY_CAMERA,focus=LIBRARY_FOCUS;
 // Image failures are local to the thumbnail; a replacement source retries naturally.
 function SnapshotImage({src}:{src:string}){
  const [failed,setFailed]=useState<string>();

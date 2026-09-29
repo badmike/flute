@@ -75,6 +75,14 @@
     "./preview": {
       "types": "./dist/library/types/preview/index.d.ts",
       "import": "./dist/library/preview.js"
+    },
+    "./vue": {
+      "types": "./dist/library/types/vue/index.d.ts",
+      "import": "./dist/library/vue.js"
+    },
+    "./vue/preview": {
+      "types": "./dist/library/types/preview-vue/index.d.ts",
+      "import": "./dist/library/vue-preview.js"
     }
   },
   "files": [
@@ -83,7 +91,19 @@
   ],
   "peerDependencies": {
     "react": ">=18.2.0 <20",
-    "react-dom": ">=18.2.0 <20"
+    "react-dom": ">=18.2.0 <20",
+    "vue": ">=3.5.0 <4"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
   },
   "bin": {
     "flute": "./dist/cli/flute.js"
@@ -94,7 +114,7 @@
   "optionalDependencies": {
     "playwright": "1.58.2"
   },
-  "description": "Cinematic 3D scenes from your live React application. Flute by Web Prodigies.",
+  "description": "Cinematic 3D scenes from your live React or Vue application. Flute by Web Prodigies.",
   "license": "MIT",
   "publishConfig": {
     "access": "public",

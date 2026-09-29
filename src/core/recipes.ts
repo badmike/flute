@@ -8,6 +8,7 @@ import type { SceneIssue } from "./scene";
  * WHAT: versioned JSON recipes and deterministic local scene catalog validation.
  * WHY: CLI and browser reopen identical metadata without executing component source.
  * WHERE: project/recipes supplies scoped files; the browser supplies JSON and binding paths.
+ * A recipe pairs with exactly one <id>.tsx, <id>.jsx or <id>.vue binding; the pairing is framework-neutral.
  */
 export const SCENE_RECIPE_DIRECTORY = "src/flute/scenes";
 export const SceneRecipeIdSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use a lowercase scene slug containing letters, digits and single hyphens.");
@@ -47,7 +48,7 @@ const CatalogInputSchema = z.strictObject({
 });
 const SourceSchema = z.strictObject({ path: z.string(), document: z.unknown() });
 const sourcePattern = /^src\/flute\/scenes\/([a-z0-9]+(?:-[a-z0-9]+)*)\.scene\.json$/;
-const bindingPattern = /^src\/flute\/scenes\/[a-z0-9]+(?:-[a-z0-9]+)*\.[jt]sx$/;
+const bindingPattern = /^src\/flute\/scenes\/[a-z0-9]+(?:-[a-z0-9]+)*\.(?:[jt]sx|vue)$/;
 const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
 
 export function loadSceneRecipes(input: unknown): SceneCatalog {
@@ -59,7 +60,7 @@ export function loadSceneRecipes(input: unknown): SceneCatalog {
   const bindings = new Set<string>();
   for (const [index, binding] of parsed.data.bindingPaths.entries()) {
     if (typeof binding === "string" && bindingPattern.test(binding)) bindings.add(binding);
-    else issues.push({ path: `bindingPaths.${index}`, message: `Use a component path ${SCENE_RECIPE_DIRECTORY}/<id>.tsx.` });
+    else issues.push({ path: `bindingPaths.${index}`, message: `Use a component path ${SCENE_RECIPE_DIRECTORY}/<id>.tsx, .jsx or .vue.` });
   }
   // Count declared IDs before entry validation so a malformed duplicate cannot win by order.
   const ids = new Map<string, number>();
@@ -96,14 +97,14 @@ export function loadSceneRecipes(input: unknown): SceneCatalog {
       issues.push({ path, message: `Scene ID "${value.id}" must match filename "${match[1]}".` });
       continue;
     }
-    const candidates = ["tsx", "jsx"].map(extension => `${SCENE_RECIPE_DIRECTORY}/${value.id}.${extension}`).filter(path => bindings.has(path));
+    const candidates = ["tsx", "jsx", "vue"].map(extension => `${SCENE_RECIPE_DIRECTORY}/${value.id}.${extension}`).filter(path => bindings.has(path));
     if (candidates.length > 1) {
-      issues.push({path,message:"Keep only one JSX or TSX component for this scene."});
+      issues.push({path,message:"Keep only one JSX, TSX or Vue component for this scene."});
       continue;
     }
     const binding = candidates[0] ?? `${SCENE_RECIPE_DIRECTORY}/${value.id}.tsx`;
     if (!bindings.has(binding)) {
-      issues.push({ path, message: `Missing local component ${binding}. Add its default component export to reopen this recipe.` });
+      issues.push({ path, message: `Missing local component ${binding} (or a matching .jsx/.vue file). Add its default component export to reopen this recipe.` });
       continue;
     }
     const preview = presentPreview(value.definition);

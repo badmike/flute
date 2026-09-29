@@ -18,7 +18,7 @@ export async function discoverRecipes(root: string, sceneId?: string): Promise<S
   const bindingPaths: string[] = [];
   const issues: SceneIssue[] = [];
   for (const path of paths) {
-    if (/\.[jt]sx$/.test(path)) {
+    if (/\.(?:[jt]sx|vue)$/.test(path)) {
       try { if (await services.isRegularFile(root, path)) bindingPaths.push(path); }
       catch (error) { issues.push(diagnostic(error, path)); }
     } else if (path.endsWith(".scene.json")) {

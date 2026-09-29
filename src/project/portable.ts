@@ -60,6 +60,7 @@ export default function FlutePage() {
  * WHERE: sync-project supplies validated recipe/binding paths. Metadata edits hot reload normally;
  * adding/removing file pairs requires flute sync. No arbitrary host modules are executed by the CLI.
  */
+// Vite resolves extensionless imports for JS/TS/JSX only; a .vue binding keeps its extension.
 export function portableCatalog(entries: {source:string;binding:string}[]): string {
   const imports = entries.map((entry,index) => `import recipe${index} from ${JSON.stringify("./scenes/" + entry.source.split("/").pop())};`);
   const mappings = entries.flatMap((entry,index) => [
