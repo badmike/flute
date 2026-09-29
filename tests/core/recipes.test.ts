@@ -64,4 +64,28 @@ describe("canonical local recipes", () => {
     }
     expect(catalog([source()], "demo").issues).toEqual([]);
   });
+  it("pairs a .scene.json recipe with a Vue single-file component binding", () => {
+    const result = loadSceneRecipes({ sources: [source()], bindingPaths: ["src/flute/scenes/demo.vue"], sceneId: "demo" });
+    expect(result.issues).toEqual([]);
+    expect(result.selected?.binding).toBe("src/flute/scenes/demo.vue");
+    expect(result.scenes.map(scene => scene.binding)).toEqual(["src/flute/scenes/demo.vue"]);
+  });
+  it("mixes bindings per scene and refuses ambiguous or malformed Vue bindings", () => {
+    const result = loadSceneRecipes({ sources: [source("alpha"), source("demo")], bindingPaths: ["src/flute/scenes/alpha.tsx", "src/flute/scenes/demo.vue"] });
+    expect(result.issues).toEqual([]);
+    expect(result.scenes.map(scene => scene.binding)).toEqual(["src/flute/scenes/alpha.tsx", "src/flute/scenes/demo.vue"]);
+    const ambiguous = loadSceneRecipes({ sources: [source()], bindingPaths: ["src/flute/scenes/demo.tsx", "src/flute/scenes/demo.vue"] });
+    expect(ambiguous.scenes).toEqual([]);
+    expect(ambiguous.issues[0].message).toContain("Keep only one");
+    for (const path of ["src/flute/scenes/nested/demo.vue", "src/flute/scenes/Demo.vue", "../demo.vue", "src/flute/scenes/demo.vue.ts", "src/flute/scenes/demo.svelte"]) {
+      const bad = loadSceneRecipes({ sources: [source()], bindingPaths: [path] });
+      expect(bad.scenes, path).toEqual([]);
+      expect(bad.issues.some(issue => issue.path === "bindingPaths.0"), path).toBe(true);
+    }
+  });
+  it("names the accepted binding extensions when a component is missing", () => {
+    const message = loadSceneRecipes({ sources: [source()], bindingPaths: [] }).issues[0].message;
+    expect(message).toContain("demo.tsx");
+    expect(message).toContain(".vue");
+  });
 });

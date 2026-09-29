@@ -348,3 +348,36 @@ test('framework connection cannot duplicate canonical recipe discovery', () => {
   const issues=checkArchitecture({'src/project/other.ts':'export async function discoverRecipes() { return {}; }'});
   assert.ok(issues.length);
 });
+
+// Shared DOM layer and the Vue adapters: framework isolation is enforced in both directions.
+test('shared dom layer, Vue runtime and Vue preview accept their allowed edges', () => {
+  assert.deepEqual(checkArchitecture({ ...valid,
+    'src/dom/registry.ts': `import type { Measurement } from '../core'; export const registry = () => new ResizeObserver(() => {}) && document.body;`,
+    'src/react/uses-dom.ts': `import { registry } from '../dom/registry'; export const x = registry;`,
+    'src/preview/uses-dom.ts': `import { registry } from '../dom/registry'; export const x = registry;`,
+    'src/vue/index.ts': `import { ref } from 'vue'; import { registry } from '../dom/registry'; import { evaluateScene } from '../core'; export const x = [ref, registry, evaluateScene, window];`,
+    'src/preview-vue/index.ts': `import { h } from 'vue'; import { x } from '../vue'; import { registry } from '../dom/registry'; export const y = [h, x, registry, document];`,
+  }), []);
+});
+for (const [file, target] of [
+  ['src/dom/bad.ts', 'react'], ['src/dom/bad.ts', 'vue'], ['src/dom/bad.ts', '../react'], ['src/dom/bad.ts', '../vue'],
+  ['src/vue/bad.ts', 'react'], ['src/vue/bad.ts', 'react-dom'], ['src/vue/bad.ts', '../react'], ['src/vue/bad.ts', '../preview-vue'],
+  ['src/preview-vue/bad.ts', 'react'], ['src/preview-vue/bad.ts', '../react'], ['src/preview-vue/bad.ts', '../preview'],
+  ['src/react/bad.ts', 'vue'], ['src/react/bad.ts', '../vue'], ['src/preview/bad.ts', 'vue'], ['src/preview/bad.ts', '../preview-vue'],
+  ['src/vue/bad.ts', '../project/services'], ['src/dom/bad.ts', '../project/commands'], ['src/preview-vue/bad.ts', 'node:fs'],
+]) test(`framework boundary rejects ${file} → ${target}`, () => rejects(file, `import x from '${target}';`));
+for (const file of ['src/dom/bad.ts', 'src/vue/bad.ts', 'src/preview-vue/bad.ts'])
+  test(`Node globals stay out of ${file}`, () => rejects(file, 'process.cwd();', 'runtime-global'));
+test('non-browser layers still cannot read DOM globals, but every UI layer can', () => {
+  rejects('src/core/dom.ts', 'document.title;', 'runtime-global');
+  for (const layer of ['dom', 'vue', 'preview-vue']) assert.deepEqual(fixture(`src/${layer}/ok.ts`, 'export const t = document.title;'), []);
+});
+test('canonical owners cannot be redeclared in the shared dom or Vue layers', () => {
+  for (const file of ['src/dom/copy.ts', 'src/vue/copy.ts', 'src/preview-vue/copy.ts']) {
+    rejects(file, 'export function evaluateScene(){return 0;}', 'canonical-owner');
+    rejects(file, 'export function usePreviewSession(){return 0;}', 'canonical-owner');
+  }
+});
+test('the real source tree classifies new directories into layers', () => {
+  assert.deepEqual(checkProject(root).filter(issue => issue.rule === 'module-boundary'), []);
+});

@@ -128,3 +128,24 @@ it("routes portable init and registry sync through canonical commands",async()=>
  expect(execute.mock.calls).toEqual([["init-project",{adapter:"react"},context],["sync-project",{},context]]);
  expect((await runCli(["sync","--adapter","react"],context,execute)).code).toBe(2);
 });
+
+it("routes the Vue adapter and validates it only for init",async()=>{
+ const execute=vi.fn().mockResolvedValue(ready);
+ await runCli(["init","--adapter","vue"],context,execute);
+ expect(execute.mock.calls).toEqual([["init-project",{adapter:"vue"},context]]);
+ expect((await runCli(["open","--adapter","vue"],context,execute)).code).toBe(2);
+ expect((await runCli(["--help"],context,execute)).stdout).toContain("[--adapter auto|react|vue]");
+});
+it("presents the Vue connection instructions without React wording",async()=>{
+ const vue:ProjectResult={success:true,data:{
+  project:{version:1,projectId:"00000000-0000-4000-8000-000000000000",entry:"src/flute/ProjectPreview.vue",packageManager:"npm",adapter:"vue"},changed:true,
+  integration:{kind:"vue",component:"src/flute/ProjectPreview.vue",instructions:"Wrap the root in <FluteProjectPreview>."},
+ }};
+ const human=await runCli(["init","--adapter","vue"],context,vi.fn().mockResolvedValue(vue));
+ expect(human.stdout).toContain("Detected Vue · Vite");
+ expect(human.stdout).toContain("src/flute/ProjectPreview.vue");
+ expect(human.stdout).toContain("Wrap the root in <FluteProjectPreview>.");
+ expect(human.stdout).not.toContain("Detected React");
+ const json=await runCli(["init","--adapter","vue","--json"],context,vi.fn().mockResolvedValue(vue));
+ expect(JSON.parse(json.stdout).data.project.adapter).toBe("vue");
+});

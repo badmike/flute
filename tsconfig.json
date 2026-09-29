@@ -29,5 +29,8 @@
     "vite.cli.config.ts",
     "app",
     "vite.test.config.ts"
+  ],
+  "exclude": [
+    "tests/fixtures/vue-host"
   ]
 }

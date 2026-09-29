@@ -32,7 +32,7 @@ export function terminalWelcome(options: TerminalOptions = {}): string {
   const title = large
     ? wordmark.split("\n").map(line => "  " + line.split(/([╔╗╚╝═║]+)/).map(part => paint(part, /^[╔╗╚╝═║]+$/.test(part) ? "shadow" : "face")).join("")).join("\n")
     : paint(FLUTE_BRAND.name, "face");
-  return `\n${title}\n\n${paint(FLUTE_BRAND.title, "accent")}  ${paint("v" + (options.version ?? "development"), "quiet")}\n${paint(FLUTE_BRAND.url, "quiet")}\n\nTurn your React UI into cinematic 3D mockups.\n\n`;
+  return `\n${title}\n\n${paint(FLUTE_BRAND.title, "accent")}  ${paint("v" + (options.version ?? "development"), "quiet")}\n${paint(FLUTE_BRAND.url, "quiet")}\n\nTurn your React or Vue UI into cinematic 3D mockups.\n\n`;
 }
 export function formatOnboarding(result: Extract<ProjectResult, { success: true }>, options: TerminalOptions = {}, includeWelcome = true): string {
   const { project, changed, integration, handoff, url } = result.data;
@@ -55,14 +55,14 @@ export function formatOnboarding(result: Extract<ProjectResult, { success: true 
   };
   const step = (label: string, detail?: string) => `${paint(tick, "accent")} ${line(label)}${detail ? "\n  " + line(detail, "quiet") : ""}`;
   const kind = integration?.kind ?? project?.adapter;
-  const host = kind === "next-app" ? "Next.js · App Router" : kind === "next-pages" ? "Next.js · Pages Router" : kind === "react" ? "React · Custom renderer" : "React · Vite";
+  const host = kind === "next-app" ? "Next.js · App Router" : kind === "next-pages" ? "Next.js · Pages Router" : kind === "react" ? "React · Custom renderer" : kind === "vue" ? "Vue · Vite" : "React · Vite";
   const rows = [step("Detected " + host)];
   if (project) rows.push(step(changed ? "Added your development connection" : "Verified your existing connection", integration?.route ?? integration?.component ?? project.entry));
   if (handoff) rows.push(step("Scene source location", "src/flute/scenes"), step("AI guide ready", handoff.path));
-  const next = [line(kind === "react" ? "One connection left. Your coding agent can handle it." : "Ready. Your first scene starts with a prompt.", "accent")];
+  const next = [line(kind === "react" || kind === "vue" ? "One connection left. Your coding agent can handle it." : "Ready. Your first scene starts with a prompt.", "accent")];
   if (handoff) next.push(line("1  Tell your coding agent (replace <page route or component path>):"), line(handoff.prompt));
   next.push(line("2  Keep your app running, or start it with npm run dev."));
-  next.push(line(url ? `3  Open your studio: ${url}` : kind === "react"
+  next.push(line(url ? `3  Open your studio: ${url}` : kind === "react" || kind === "vue"
     ? "3  Open the preview link your agent gives you after connecting the wrapper."
     : "3  Run npx flute open --url <origin printed by your app>."));
   if (integration) next.push(line(integration.instructions, "quiet"));
