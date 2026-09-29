@@ -3,6 +3,7 @@ import {
   provide, shallowRef, toRaw, useId, type PropType,
 } from "vue";
 import { transformToCss, uniformFocusBlur, type TransformInput } from "../core";
+import { withPixelUnits } from "../dom/style-units";
 import { PARENT_KEY, SCENE_KEY } from "./context";
 import { FocusFilter } from "./FocusFilter";
 
@@ -45,7 +46,7 @@ export const Surface = defineComponent({
       // Reading every key tracks in-place edits of a reactive transform object.
       if (props.transform) void { ...props.transform };
       const { class: className, style: rawStyle, ...rest } = attrs;
-      const style = (normalizeStyle(rawStyle) ?? {}) as Record<string, string | number>;
+      const style = withPixelUnits((normalizeStyle(rawStyle) ?? {}) as Record<string, string | number>);
       const id = props.id;
       const node = nodes.get(id);
       const hasContent = slots.content !== undefined;

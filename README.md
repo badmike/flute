@@ -95,7 +95,7 @@ import Revenue from "../../components/Revenue.vue";
 </template>
 ```
 
-Vue does not add units to numeric style values, so write `'400px'`, not `400`. The recipe JSON (camera, focus, motion, node IDs) is identical to React's. Providers from `provide`/`inject` must be provided inside the scene component (as `WholeScene.vue` does in `local-project-vue/`). `npx flute sync` validates `.vue` pairs; the Vite glob discovers them, so no catalog file is written.
+Numeric style values on `Scene`/`Surface` are pixels, like React (`:style="{ width: 400 }"` renders `width: 400px`; unitless properties such as `opacity` and `zIndex` and `0` are left alone). The recipe JSON (camera, focus, motion, node IDs) is identical to React's. Providers from `provide`/`inject` must be provided inside the scene component (as `WholeScene.vue` does in `local-project-vue/`). `npx flute sync` validates `.vue` pairs; the Vite glob discovers them, so no catalog file is written.
 
 Export is the same as for React: `npx flute export --url "http://127.0.0.1:5173/?flute-preview=1&flute-scene=plating" --output plating.mp4 --fps 60`. Other commands (`scenes`, `validate`, `load`, `open --scene`, `snapshot`) work unchanged. The `local-project-vue/` sample shows the complete setup; see its README.
 

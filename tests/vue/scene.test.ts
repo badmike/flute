@@ -122,6 +122,34 @@ describe("live Vue spatial adapter", () => {
     expect(projected).not.toHaveBeenCalled();
   });
 
+  it("treats numeric styles as pixels on Scene and Surface, like React", async () => {
+    render({
+      components: { Scene, Surface },
+      template: `<Scene :style="{ width: 640, height: 320, opacity: 0.5, zIndex: 2 }">
+        <Surface id="a" :style="{ position: 'absolute', left: 12, top: 0, width: 400, opacity: 0.5, zIndex: 2, lineHeight: 1.5 }">A</Surface>
+        <Surface id="b" :style="[{ 'max-width': 300, 'z-index': 3 }, { '--gap': 8 }]">B</Surface>
+      </Scene>`,
+    });
+    await flush();
+    const scene = document.querySelector<HTMLElement>("[data-flute-scene]")!;
+    expect(scene.style.width).toBe("640px");
+    expect(scene.style.height).toBe("320px");
+    expect(scene.style.cssText).toContain("opacity: 0.5");
+    expect(scene.style.cssText).toContain("z-index: 2");
+    const a = node("a");
+    expect(a.style.width).toBe("400px");
+    expect(a.style.left).toBe("12px");
+    expect(a.style.top).toBe("0px");
+    expect(a.style.zIndex).toBe("2");
+    expect(a.style.lineHeight).toBe("1.5");
+    // Surface owns its own opacity (1 on the container; the requested value lives on the content leaf).
+    expect(a.style.opacity).toBe("1");
+    const b = node("b");
+    expect(b.style.maxWidth).toBe("300px");
+    expect(b.style.zIndex).toBe("3");
+    expect(b.style.getPropertyValue("--gap")).toBe("8");
+  });
+
   it("emits the React adapter's exact DOM contract", async () => {
     render(() => h(Scene, { class: "host-scene", style: { width: "640px", position: "absolute" } }, {
       default: () => h(Surface, { id: "a", class: "host-surface" }, { default: () => "A" }),

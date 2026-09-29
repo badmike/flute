@@ -70,6 +70,18 @@ test.describe("Vue adapter parity with React", () => {
     expect(vue.boxes).toEqual(react.boxes);
   });
 
+  test("numeric styles (pixels, unitless properties, negatives, zero) serialize identically", async ({ page }) => {
+    const { react, vue } = await gotoBoth(page, "?units", async p => { await expect(p.locator("[data-flute-id=unit]")).toBeVisible(); await p.waitForTimeout(100); });
+    expect(vue.dom).toEqual(react.dom);
+    expect(vue.boxes).toEqual(react.boxes);
+    const styles = await page.evaluate(() => {
+      const scene = document.querySelector<HTMLElement>("[data-flute-scene]")!;
+      const unit = document.querySelector<HTMLElement>("[data-flute-id=unit]")!;
+      return { scene: [scene.style.width, scene.style.opacity, scene.style.zIndex], unit: [unit.style.width, unit.style.left, unit.style.marginLeft, unit.style.zIndex, unit.style.lineHeight, unit.style.paddingTop] };
+    });
+    expect(styles).toEqual({ scene: ["800px", "0.75", "3"], unit: ["200px", "40px", "-8px", "2", "1.5", "0px"] });
+  });
+
   test("rendered pixels show the same progressive focus transition", async ({ page }) => {
     await page.goto("/tests/fixtures/focus.html");
     await expect(page.locator("[data-flute-content]")).toHaveCSS("filter", /url/);

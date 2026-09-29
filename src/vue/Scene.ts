@@ -14,6 +14,7 @@ import {
 } from "../core";
 import type { MotionInput } from "../core/motion";
 import { createRegistry } from "../dom/registry";
+import { withPixelUnits } from "../dom/style-units";
 import { PARENT_KEY, SCENE_KEY, type SceneContextValue, type SceneState } from "./context";
 
 /** SOURCE OF TRUTH: Vue Scene live DOM adapter.
@@ -25,7 +26,7 @@ import { PARENT_KEY, SCENE_KEY, type SceneContextValue, type SceneState } from "
  * Composition rules match the React adapter: content is an isolated visual leaf, spatial
  * containers ignore pointer hits, and clipping/opacity/decoration belong on content leaves.
  * The registry is markRaw and never enters reactive state; a shallowRef revision bridges it.
- * Vue does not add units to numeric style values, so pixel lengths are written explicitly.
+ * Numeric style values are pixels, like React: Vue writes numbers verbatim, so withPixelUnits adds the unit.
  */
 export const Scene = defineComponent({
   name: "FluteScene",
@@ -118,7 +119,7 @@ export const Scene = defineComponent({
       const { evaluation, validated } = result.value;
       const camera = validated.success ? validated.data.camera : undefined;
       const { class: className, style: rawStyle, ...rest } = attrs;
-      const style = (normalizeStyle(rawStyle) ?? {}) as Record<string, string | number>;
+      const style = withPixelUnits((normalizeStyle(rawStyle) ?? {}) as Record<string, string | number>);
       const issues = evaluation.issues;
       return [
         h("div", {

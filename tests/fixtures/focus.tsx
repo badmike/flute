@@ -49,4 +49,13 @@ function Planes() {
     </Surface>
   </Scene>;
 }
-createRoot(document.getElementById("root")!).render(location.search.includes("planes") ? <Planes/> : <Probe />);
+// Numeric styles with unitless properties: React and Vue must serialize the same pixels and bare numbers.
+function Units() {
+  return <Scene style={{width:800,height:400,opacity:0.75,zIndex:3}} focus={{distance:1400,fStop:1.4,focalLength:150,maxBlur:0}}>
+    <Surface id="unit" style={{position:"absolute",left:40,top:20,width:200,height:100,zIndex:2,lineHeight:1.5,flexGrow:1,marginLeft:-8,paddingTop:0}}>
+      <div style={{height:100,opacity:0.5,fontWeight:600,background:"repeating-linear-gradient(90deg,#fff 0px,#fff 4px,#000 4px,#000 8px)"}} />
+    </Surface>
+  </Scene>;
+}
+const search = location.search;
+createRoot(document.getElementById("root")!).render(search.includes("planes") ? <Planes/> : search.includes("units") ? <Units/> : <Probe />);
