@@ -340,6 +340,42 @@ describe("Vue ScenePreview controls", () => {
   });
 });
 
+describe("Vue HMR connection", () => {
+  function fakeHot() {
+    const listeners = new Map<string, Set<(payload: any) => void>>();
+    return {
+      on: (event: string, listener: (payload: any) => void) => { listeners.set(event, (listeners.get(event) ?? new Set()).add(listener)); },
+      off: (event: string, listener: (payload: any) => void) => { listeners.get(event)?.delete(listener); },
+      emit: (event: string, payload?: unknown) => listeners.get(event)?.forEach(listener => listener(payload)),
+      count: () => Array.from(listeners.values()).reduce((total, set) => total + set.size, 0),
+    };
+  }
+  it("pauses and explains disconnects, updates and source errors, and unsubscribes on unmount", async () => {
+    const hot = fakeHot();
+    const view = render(() => h(ScenePreview, { definition, hot }, { default: () => h(Surface, { id: "host" }, { default: () => "Host" }) }));
+    await flush();
+    expect(screen.getAllByText("Live preview").length).toBeGreaterThan(0);
+    hot.emit("vite:ws:disconnect");
+    await flush();
+    expect(within(controls()).getByRole("alert").textContent).toContain("Keep your development server running");
+    expect(document.querySelector("[data-flute-state]")!.getAttribute("data-flute-state")).toBe("unavailable");
+    hot.emit("vite:ws:connect");
+    hot.emit("vite:beforeUpdate");
+    await flush();
+    expect(screen.getAllByText("Updating scene…").length).toBeGreaterThan(0);
+    hot.emit("vite:afterUpdate");
+    await flush();
+    expect(screen.getAllByText("Live preview").length).toBeGreaterThan(0);
+    hot.emit("vite:error", { err: { message: "Unexpected token in scene.vue" } });
+    await flush();
+    expect(within(controls()).getByRole("alert").textContent).toContain("Unexpected token in scene.vue");
+    expect((within(controls()).getByRole("button", { name: "Play" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(hot.count()).toBe(5);
+    view.unmount(); wrappers = [];
+    expect(hot.count()).toBe(0);
+  });
+});
+
 describe("Vue scene library", () => {
   const image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPdwAAAAASUVORK5CYII=";
   const recipe = (id: string, snapshot?: { image: string; timeMs: number }) => ({
