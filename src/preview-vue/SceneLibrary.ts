@@ -73,6 +73,8 @@ export const VueSceneLibrary = defineComponent({
     }, { flush: "post" });
     onBeforeUnmount(() => observer?.disconnect());
     const destination = (id?: string) => {
+      // Server renders (no location) get a query-only link; the client recomputes it from the real URL.
+      if (typeof location === "undefined") return id ? `?flute-scene=${encodeURIComponent(id)}` : "?";
       const url = new URL(location.href);
       if (id) url.searchParams.set("flute-scene", id); else url.searchParams.delete("flute-scene");
       return url.pathname + url.search + url.hash;
